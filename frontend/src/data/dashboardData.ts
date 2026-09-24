@@ -1,4 +1,39 @@
-export const dashboardData = {
+export type AlertType = 'critical' | 'warning' | 'info'
+
+export interface Metric {
+  label: string
+  value: string
+  variation: string
+}
+
+export interface Alert {
+  title: string
+  description: string
+  level: string
+  type: AlertType
+}
+
+export interface Recommendation {
+  title: string
+  description: string
+  actionLabel: string
+  action: string
+}
+
+export interface DashboardData {
+  metrics: {
+    revenue: Metric
+    orders: Metric
+    conversion: Metric
+    cartAbandonment: Metric
+  }
+
+  alerts: Alert[]
+
+  recommendation: Recommendation
+}
+
+export const dashboardData: DashboardData = {
   metrics: {
     revenue: {
       label: 'Faturamento',
@@ -59,7 +94,6 @@ export const dashboardData = {
 
     actionLabel: 'Próxima ação sugerida',
 
-    action:
-      'Verificar o fluxo de checkout',
+    action: 'Verificar o fluxo de checkout',
   },
 }
