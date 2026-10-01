@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { EventType, NexusEvent } from './types/events.js'
 import { calculateMetrics } from './services/metricsService.js'
+import { detectAnomalies } from './services/anomalyDetectionService.js'
 import {
   addEvent,
   getEvents,
@@ -73,6 +74,17 @@ app.get('/api/metrics', (_req, res) => {
   res.json({
     success: true,
     metrics,
+  })
+})
+
+app.get('/api/alerts', (_req, res) => {
+  const metrics = calculateMetrics(getEvents())
+  const alerts = detectAnomalies(metrics)
+
+  res.json({
+    success: true,
+    total: alerts.length,
+    alerts,
   })
 })
 
