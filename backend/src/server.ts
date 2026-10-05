@@ -8,6 +8,14 @@ import {
   getEvents,
   getEventCount,
 } from './store/eventStore.js'
+import {
+  recordMetricsSnapshot,
+  getMetricsHistory,
+  getLatestMetricsSnapshot,
+} from './services/historicalMetricsService.js'
+import {
+  calculateBaseline,
+} from './services/baselineService.js'
 
 const app = express()
 const PORT = 3000
@@ -23,11 +31,12 @@ const validEventTypes: EventType[] = [
   'cart_abandoned',
 ]
 
-app.get('/api/health', (_req, res) => {
+app.get('/api/metrics', (_req, res) => {
+  const metrics = calculateMetrics(getEvents())
+
   res.json({
-    status: 'online',
-    service: 'Nexus API',
-    version: '0.1.0',
+    success: true,
+    metrics,
   })
 })
 
@@ -77,6 +86,16 @@ app.get('/api/metrics', (_req, res) => {
   })
 })
 
+app.get('/api/metrics/history', (_req, res) => {
+  const history = getMetricsHistory()
+
+  res.json({
+    success: true,
+    total: history.length,
+    history,
+  })
+})
+
 app.get('/api/alerts', (_req, res) => {
   const metrics = calculateMetrics(getEvents())
   const alerts = detectAnomalies(metrics)
@@ -85,6 +104,34 @@ app.get('/api/alerts', (_req, res) => {
     success: true,
     total: alerts.length,
     alerts,
+  })
+})
+
+const SNAPSHOT_INTERVAL = 60 * 1000
+
+setInterval(() => {
+  const metrics = calculateMetrics(getEvents())
+
+  const snapshot = recordMetricsSnapshot(metrics)
+
+  console.log(
+    `[NEXUS] Snapshot registrado: ${snapshot.timestamp}`,
+  )
+}, SNAPSHOT_INTERVAL)
+
+app.get('/api/baseline', (_req, res) => {
+  const history = getMetricsHistory()
+  const currentMetrics = calculateMetrics(getEvents())
+
+  const baseline = calculateBaseline(
+    history,
+    currentMetrics,
+  )
+
+  res.json({
+    success: true,
+    total: baseline.length,
+    baseline,
   })
 })
 
