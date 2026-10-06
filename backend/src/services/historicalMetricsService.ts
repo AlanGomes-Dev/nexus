@@ -30,3 +30,20 @@ export function getLatestMetricsSnapshot(): MetricsSnapshot | null {
 
   return metricsHistory[metricsHistory.length - 1]
 }
+
+export function seedHistoricalMetrics(
+  scenarios: NexusMetrics[],
+): void {
+  metricsHistory.length = 0
+
+  scenarios.forEach((metrics, index) => {
+    const snapshot: MetricsSnapshot = {
+      ...metrics,
+      timestamp: new Date(
+        Date.now() - (scenarios.length - index) * 60_000,
+      ).toISOString(),
+    }
+
+    metricsHistory.push(snapshot)
+  })
+}

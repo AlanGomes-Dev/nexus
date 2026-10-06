@@ -16,9 +16,22 @@ import {
 import {
   calculateBaseline,
 } from './services/baselineService.js'
+import {
+  getHistoricalScenarios,
+} from './simulator/historicalSimulator.js'
+
+import {
+  seedHistoricalMetrics,
+} from './services/historicalMetricsService.js'
 
 const app = express()
 const PORT = 3000
+
+const historicalScenarios = getHistoricalScenarios()
+
+seedHistoricalMetrics(
+  historicalScenarios.map((scenario) => scenario.metrics),
+)
 
 app.use(cors())
 app.use(express.json())

@@ -1,62 +1,68 @@
 import { NexusMetrics } from './metricsService.js'
-import { MetricsSnapshot } from './historicalMetricsService.js'
+
+export type BaselineStatus =
+  | 'normal'
+  | 'warning'
+  | 'critical'
+  | 'insufficient_data'
 
 export interface BaselineResult {
-  metric: string
+  metric: keyof NexusMetrics
   currentValue: number
   baselineValue: number
   deviationPercent: number
-  status: 'normal' | 'warning' | 'critical'
+  status: BaselineStatus
 }
 
-function calculateAverage(values: number[]): number {
-  if (values.length === 0) {
-    return 0
-  }
+const MINIMUM_EVENTS_FOR_ANALYSIS = 5
 
-  return (
-    values.reduce((total, value) => total + value, 0) /
-    values.length
-  )
-}
+const trackedMetrics: (keyof NexusMetrics)[] = [
+  'productViews',
+  'checkoutsStarted',
+  'ordersCreated',
+  'paymentsFailed',
+  'cartsAbandoned',
+  'totalRevenue',
+]
 
 export function calculateBaseline(
-  history: MetricsSnapshot[],
+  history: NexusMetrics[],
   currentMetrics: NexusMetrics,
 ): BaselineResult[] {
-  if (history.length === 0) {
-    return []
+  if (currentMetrics.totalEvents < MINIMUM_EVENTS_FOR_ANALYSIS) {
+    return trackedMetrics.map((metric) => ({
+      metric,
+      currentValue: currentMetrics[metric],
+      baselineValue: calculateAverage(history, metric),
+      deviationPercent: 0,
+      status: 'insufficient_data',
+    }))
   }
 
-  const metrics = [
-    'productViews',
-    'checkoutsStarted',
-    'ordersCreated',
-    'paymentsFailed',
-    'cartsAbandoned',
-    'totalRevenue',
-  ] as const
-
-  return metrics.map((metric) => {
-    const historicalValues = history.map(
-      (snapshot) => snapshot[metric],
-    )
-
-    const baselineValue = calculateAverage(historicalValues)
+  return trackedMetrics.map((metric) => {
     const currentValue = currentMetrics[metric]
+    const baselineValue = calculateAverage(history, metric)
+
+    if (baselineValue === 0) {
+      return {
+        metric,
+        currentValue,
+        baselineValue,
+        deviationPercent: 0,
+        status: 'normal',
+      }
+    }
 
     const deviationPercent =
-      baselineValue === 0
-        ? 0
-        : ((currentValue - baselineValue) /
-            baselineValue) *
-          100
+      ((currentValue - baselineValue) / baselineValue) * 100
 
-    let status: BaselineResult['status'] = 'normal'
+    const absoluteDeviation = Math.abs(deviationPercent)
 
-    if (Math.abs(deviationPercent) >= 50) {
+    let status: BaselineStatus = 'normal'
+
+    if (absoluteDeviation >= 50) {
       status = 'critical'
-    } else if (Math.abs(deviationPercent) >= 25) {
+    } else if (absoluteDeviation >= 25) {
       status = 'warning'
     }
 
@@ -64,10 +70,24 @@ export function calculateBaseline(
       metric,
       currentValue,
       baselineValue: Number(baselineValue.toFixed(2)),
-      deviationPercent: Number(
-        deviationPercent.toFixed(2),
-      ),
+      deviationPercent: Number(deviationPercent.toFixed(2)),
       status,
     }
   })
+}
+
+function calculateAverage(
+  history: NexusMetrics[],
+  metric: keyof NexusMetrics,
+): number {
+  if (history.length === 0) {
+    return 0
+  }
+
+  const total = history.reduce(
+    (sum, snapshot) => sum + snapshot[metric],
+    0,
+  )
+
+  return total / history.length
 }
