@@ -25,6 +25,18 @@ const trackedMetrics: (keyof NexusMetrics)[] = [
   'totalRevenue',
 ]
 
+/**
+ * Métricas em que um aumento representa deterioração operacional.
+ *
+ * Exemplo:
+ * paymentsFailed: 10 → pior
+ * cartsAbandoned: 10 → pior
+ */
+const higherIsWorse: (keyof NexusMetrics)[] = [
+  'paymentsFailed',
+  'cartsAbandoned',
+]
+
 export function calculateBaseline(
   history: NexusMetrics[],
   currentMetrics: NexusMetrics,
@@ -47,7 +59,7 @@ export function calculateBaseline(
       return {
         metric,
         currentValue,
-        baselineValue,
+        baselineValue: 0,
         deviationPercent: 0,
         status: 'normal',
       }
@@ -56,15 +68,10 @@ export function calculateBaseline(
     const deviationPercent =
       ((currentValue - baselineValue) / baselineValue) * 100
 
-    const absoluteDeviation = Math.abs(deviationPercent)
-
-    let status: BaselineStatus = 'normal'
-
-    if (absoluteDeviation >= 50) {
-      status = 'critical'
-    } else if (absoluteDeviation >= 25) {
-      status = 'warning'
-    }
+    const status = determineStatus(
+      metric,
+      deviationPercent,
+    )
 
     return {
       metric,
@@ -74,6 +81,32 @@ export function calculateBaseline(
       status,
     }
   })
+}
+
+function determineStatus(
+  metric: keyof NexusMetrics,
+  deviationPercent: number,
+): BaselineStatus {
+  const worsening =
+    higherIsWorse.includes(metric)
+      ? deviationPercent > 0
+      : deviationPercent < 0
+
+  if (!worsening) {
+    return 'normal'
+  }
+
+  const absoluteDeviation = Math.abs(deviationPercent)
+
+  if (absoluteDeviation >= 50) {
+    return 'critical'
+  }
+
+  if (absoluteDeviation >= 25) {
+    return 'warning'
+  }
+
+  return 'normal'
 }
 
 function calculateAverage(
