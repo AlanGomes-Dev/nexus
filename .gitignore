@@ -1,0 +1,20 @@
+
+# Dependências
+**/node_modules/
+
+# Arquivos compilados
+**/dist/
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Banco SQLite local e arquivos auxiliares
+backend/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
