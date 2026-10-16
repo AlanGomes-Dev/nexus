@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import fs from 'node:fs'
-import { NexusMetrics } from './metricsService.js'
+import type { NexusMetrics } from './metricsService.js'
 
 export interface MetricsSnapshot extends NexusMetrics {
   timestamp: string
@@ -11,11 +11,19 @@ export interface MetricsSnapshot extends NexusMetrics {
 
 const currentFile = fileURLToPath(import.meta.url)
 const currentDirectory = path.dirname(currentFile)
-const databaseDirectory = path.resolve(currentDirectory, '../../data')
 
-fs.mkdirSync(databaseDirectory, { recursive: true })
+const defaultDatabaseDirectory = path.resolve(
+  currentDirectory,
+  '../../data',
+)
 
-const db = new Database(path.join(databaseDirectory, 'nexus.db'))
+const databasePath = process.env.NEXUS_DB_PATH
+  ? path.resolve(process.env.NEXUS_DB_PATH)
+  : path.join(defaultDatabaseDirectory, 'nexus.db')
+
+fs.mkdirSync(path.dirname(databasePath), { recursive: true })
+
+const db = new Database(databasePath)
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS metrics_history (
@@ -33,14 +41,21 @@ db.exec(`
 
 const insertSnapshot = db.prepare(`
   INSERT INTO metrics_history (
-    timestamp, totalEvents, productViews, checkoutsStarted,
-    ordersCreated, paymentsFailed, cartsAbandoned, totalRevenue
+    timestamp,
+    totalEvents,
+    productViews,
+    checkoutsStarted,
+    ordersCreated,
+    paymentsFailed,
+    cartsAbandoned,
+    totalRevenue
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `)
 
 const selectSnapshots = db.prepare(`
-  SELECT timestamp, totalEvents, productViews, checkoutsStarted,
-         ordersCreated, paymentsFailed, cartsAbandoned, totalRevenue
+  SELECT timestamp, totalEvents, productViews,
+         checkoutsStarted, ordersCreated, paymentsFailed,
+         cartsAbandoned, totalRevenue
   FROM metrics_history
   ORDER BY id ASC
 `)
@@ -79,6 +94,10 @@ export function getLatestMetricsSnapshot(): MetricsSnapshot | null {
 export function seedHistoricalMetrics(
   _scenarios: NexusMetrics[],
 ): void {
-  // Os cenários simulados não são gravados no histórico real.
-  // O histórico persistido não deve ser apagado na inicialização.
+  // Não inserir cenários fictícios no histórico real.
+  // Os snapshots existentes nunca são apagados na inicialização.
+}
+
+export function closeMetricsHistoryStore(): void {
+  db.close()
 }

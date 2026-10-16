@@ -1,19 +1,24 @@
 
 import Database from 'better-sqlite3'
-import { NexusEvent } from '../types/events.js'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { NexusEvent } from '../types/events.js'
 
 const currentFile = fileURLToPath(import.meta.url)
 const currentDirectory = path.dirname(currentFile)
 
-// Banco salvo em backend/data/nexus.db
-const databaseDirectory = path.resolve(currentDirectory, '../../data')
-import fs from 'node:fs'
+const defaultDatabaseDirectory = path.resolve(
+  currentDirectory,
+  '../../data',
+)
 
-fs.mkdirSync(databaseDirectory, { recursive: true })
+const databasePath = process.env.NEXUS_DB_PATH
+  ? path.resolve(process.env.NEXUS_DB_PATH)
+  : path.join(defaultDatabaseDirectory, 'nexus.db')
 
-const databasePath = path.join(databaseDirectory, 'nexus.db')
+fs.mkdirSync(path.dirname(databasePath), { recursive: true })
+
 const db = new Database(databasePath)
 
 db.pragma('journal_mode = WAL')
@@ -34,7 +39,7 @@ const insertEvent = db.prepare(`
 `)
 
 const selectEvents = db.prepare(`
-  SELECT type, customerId, timestamp, data
+  SELECT data
   FROM events
   ORDER BY id ASC
 `)
@@ -56,9 +61,7 @@ export function addEvent(event: NexusEvent): NexusEvent {
 }
 
 export function getEvents(): NexusEvent[] {
-  const rows = selectEvents.all() as {
-    data: string
-  }[]
+  const rows = selectEvents.all() as { data: string }[]
 
   return rows.map((row) => JSON.parse(row.data) as NexusEvent)
 }
@@ -69,4 +72,9 @@ export function getEventCount(): number {
   ).get() as { total: number }
 
   return result.total
+}
+
+// Permite encerrar a conexão em testes automatizados.
+export function closeEventStore(): void {
+  db.close()
 }
