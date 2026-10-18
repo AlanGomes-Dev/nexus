@@ -1,151 +1,31 @@
 
-import express from 'express'
-import cors from 'cors'
-import { EventType, NexusEvent } from './types/events.js'
-import { calculateMetrics } from './services/metricsService.js'
-import { detectAnomalies } from './services/anomalyDetectionService.js'
-import { detectCorrelations } from './services/correlationService.js'
 import {
-  addEvent,
-  getEvents,
-  getEventCount,
-} from './store/eventStore.js'
-import {
-  recordMetricsSnapshot,
-  getMetricsHistory,
-  seedHistoricalMetrics,
-} from './services/historicalMetricsService.js'
-import { calculateBaseline } from './services/baselineService.js'
-import { getHistoricalScenarios } from './simulator/historicalSimulator.js'
+  app,
+  initializeHistoricalMetrics,
+  recordCurrentMetricsSnapshot,
+} from './app.js'
 
-const app = express()
 const PORT = 3000
 
-const historicalScenarios = getHistoricalScenarios()
-
-seedHistoricalMetrics(
-  historicalScenarios.map((scenario) => scenario.metrics),
-)
-
-app.use(cors())
-app.use(express.json())
-
-const validEventTypes: EventType[] = [
-  'product_viewed',
-  'checkout_started',
-  'order_created',
-  'payment_failed',
-  'cart_abandoned',
-]
-
-app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'online',
-    service: 'Nexus API',
-    version: '0.1.0',
-  })
-})
-
-app.get('/api/metrics', (_req, res) => {
-  const metrics = calculateMetrics(getEvents())
-
-  res.json({ success: true, metrics })
-})
-
-app.post('/api/events', (req, res) => {
-  const event = req.body as NexusEvent
-
-  if (!event.type || !validEventTypes.includes(event.type)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Tipo de evento inválido.',
-      validEventTypes,
-    })
-  }
-
-  if (!event.customerId) {
-    return res.status(400).json({
-      success: false,
-      message: 'customerId é obrigatório.',
-    })
-  }
-
-  const storedEvent = addEvent(event)
-
-  console.log('Novo evento recebido:', storedEvent)
-
-  return res.status(201).json({
-    success: true,
-    message: 'Evento recebido pelo Nexus',
-    event: storedEvent,
-  })
-})
-
-app.get('/api/events', (_req, res) => {
-  res.json({
-    success: true,
-    total: getEventCount(),
-    events: getEvents(),
-  })
-})
-
-app.get('/api/metrics/history', (_req, res) => {
-  const history = getMetricsHistory()
-
-  res.json({
-    success: true,
-    total: history.length,
-    history,
-  })
-})
-
-app.get('/api/alerts', (_req, res) => {
-  const metrics = calculateMetrics(getEvents())
-  const alerts = detectAnomalies(metrics)
-
-  res.json({
-    success: true,
-    total: alerts.length,
-    alerts,
-  })
-})
-
-app.get('/api/baseline', (_req, res) => {
-  const history = getMetricsHistory()
-  const currentMetrics = calculateMetrics(getEvents())
-  const baseline = calculateBaseline(history, currentMetrics)
-
-  res.json({
-    success: true,
-    total: baseline.length,
-    baseline,
-  })
-})
-
-app.get('/api/correlations', (_req, res) => {
-  const history = getMetricsHistory()
-  const currentMetrics = calculateMetrics(getEvents())
-  const baseline = calculateBaseline(history, currentMetrics)
-  const correlations = detectCorrelations(currentMetrics, baseline)
-
-  res.json({
-    success: true,
-    total: correlations.length,
-    correlations,
-  })
-})
+initializeHistoricalMetrics()
 
 const SNAPSHOT_INTERVAL = 60 * 1000
 
-setInterval(() => {
-  const metrics = calculateMetrics(getEvents())
-  const snapshot = recordMetricsSnapshot(metrics)
-
-  console.log(
-    `[NEXUS] Snapshot registrado: ${snapshot.timestamp}`,
-  )
+const snapshotTimer = setInterval(() => {
+  recordCurrentMetricsSnapshot()
 }, SNAPSHOT_INTERVAL)
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Nexus API rodando em http://localhost:${PORT}`)
 })
+
+function shutdown(): void {
+  clearInterval(snapshotTimer)
+
+  server.close(() => {
+    process.exit(0)
+  })
+}
+
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
