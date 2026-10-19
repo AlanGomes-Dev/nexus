@@ -116,6 +116,64 @@ expect(events.events[0]).toMatchObject(event)
     expect(response.status).toBe(400)
   })
 
+  
+  it('deve rejeitar valor negativo', async () => {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'order_created',
+        customerId: 'cliente-teste',
+        value: -10,
+      }),
+    })
+
+    expect(response.status).toBe(400)
+  })
+
+  it('deve rejeitar valor não numérico', async () => {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'order_created',
+        customerId: 'cliente-teste',
+        value: '100',
+      }),
+    })
+
+    expect(response.status).toBe(400)
+  })
+
+  it('deve rejeitar data inválida', async () => {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'product_viewed',
+        customerId: 'cliente-teste',
+        timestamp: 'data-invalida',
+      }),
+    })
+
+    expect(response.status).toBe(400)
+  })
+
+  it('deve rejeitar identificador de produto vazio', async () => {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'product_viewed',
+        customerId: 'cliente-teste',
+        productId: '   ',
+      }),
+    })
+
+    expect(response.status).toBe(400)
+  })
+
+
   it('deve responder às rotas de métricas, histórico, alertas, baseline e correlações', async () => {
     const routes = [
       '/api/metrics',

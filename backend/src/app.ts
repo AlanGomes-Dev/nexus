@@ -44,10 +44,27 @@ app.get('/api/metrics', (_req, res) => {
   res.json({ success: true, metrics })
 })
 
-app.post('/api/events', (req, res) => {
-  const event = req.body as NexusEvent
 
-  if (!event.type || !validEventTypes.includes(event.type)) {
+app.post('/api/events', (req, res) => {
+  const body: unknown = req.body
+
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    Array.isArray(body)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'O corpo da requisição deve ser um objeto JSON.',
+    })
+  }
+
+  const event = body as Record<string, unknown>
+
+  if (
+    typeof event.type !== 'string' ||
+    !validEventTypes.includes(event.type as EventType)
+  ) {
     return res.status(400).json({
       success: false,
       message: 'Tipo de evento inválido.',
@@ -61,11 +78,50 @@ app.post('/api/events', (req, res) => {
   ) {
     return res.status(400).json({
       success: false,
-      message: 'customerId é obrigatório.',
+      message: 'customerId é obrigatório e deve ser uma string não vazia.',
     })
   }
 
-  const storedEvent = addEvent(event)
+  for (const field of ['productId', 'orderId'] as const) {
+    if (
+      event[field] !== undefined &&
+      (typeof event[field] !== 'string' || !event[field].trim())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `${field} deve ser uma string não vazia quando informado.`,
+      })
+    }
+  }
+
+  if (
+    event.value !== undefined &&
+    (
+      typeof event.value !== 'number' ||
+      !Number.isFinite(event.value) ||
+      event.value < 0
+    )
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'value deve ser um número finito maior ou igual a zero.',
+    })
+  }
+
+  if (event.timestamp !== undefined) {
+    if (
+      typeof event.timestamp !== 'string' ||
+      !event.timestamp.trim() ||
+      !Number.isFinite(Date.parse(event.timestamp))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'timestamp deve conter uma data válida.',
+      })
+    }
+  }
+
+  const storedEvent = addEvent(event as unknown as NexusEvent)
 
   return res.status(201).json({
     success: true,
