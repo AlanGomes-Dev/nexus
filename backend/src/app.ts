@@ -44,7 +44,6 @@ app.get('/api/metrics', (_req, res) => {
   res.json({ success: true, metrics })
 })
 
-
 app.post('/api/events', (req, res) => {
   const body: unknown = req.body
 
@@ -121,6 +120,33 @@ app.post('/api/events', (req, res) => {
     }
   }
 
+  const requiredFields: Partial<Record<EventType, string[]>> = {
+    product_viewed: ['productId'],
+    order_created: ['orderId', 'value'],
+    payment_failed: ['orderId'],
+  }
+
+  for (const field of requiredFields[event.type as EventType] ?? []) {
+    const value = event[field]
+
+    if (field === 'value') {
+      if (
+        typeof value !== 'number' ||
+        !Number.isFinite(value) ||
+        value < 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'value é obrigatório e deve ser um número finito maior ou igual a zero.',
+        })
+      }
+    } else if (typeof value !== 'string' || !value.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: `${field} é obrigatório e deve ser uma string não vazia.`,
+      })
+    }
+  }
   const storedEvent = addEvent(event as unknown as NexusEvent)
 
   return res.status(201).json({

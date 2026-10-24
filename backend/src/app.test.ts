@@ -172,7 +172,56 @@ expect(events.events[0]).toMatchObject(event)
 
     expect(response.status).toBe(400)
   })
+  it('deve rejeitar produto visualizado sem productId', async () => {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'product_viewed',
+        customerId: 'cliente-teste',
+      }),
+    })
+    expect(response.status).toBe(400)
+  })
 
+  it('deve rejeitar pedido criado sem orderId', async () => {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'order_created',
+        customerId: 'cliente-teste',
+        value: 100,
+      }),
+    })
+    expect(response.status).toBe(400)
+  })
+
+  it('deve rejeitar pedido criado sem value', async () => {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'order_created',
+        customerId: 'cliente-teste',
+        orderId: 'pedido-teste',
+      }),
+    })
+    expect(response.status).toBe(400)
+  })
+
+  it('deve rejeitar pagamento com falha sem orderId', async () => {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'payment_failed',
+        customerId: 'cliente-teste',
+      }),
+    })
+
+    expect(response.status).toBe(400)
+  })
 
   it('deve responder às rotas de métricas, histórico, alertas, baseline e correlações', async () => {
     const routes = [
