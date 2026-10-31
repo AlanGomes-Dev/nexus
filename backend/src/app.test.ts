@@ -83,11 +83,11 @@ describe('Nexus API', () => {
     const listResponse = await fetch(`${baseUrl}/api/events`)
     const events = await listResponse.json()
 
-   expect(listResponse.status).toBe(200)
-expect(events.success).toBe(true)
-expect(events.total).toBe(1)
-expect(events.events).toHaveLength(1)
-expect(events.events[0]).toMatchObject(event)
+    expect(listResponse.status).toBe(200)
+    expect(events.success).toBe(true)
+    expect(events.total).toBe(1)
+    expect(events.events).toHaveLength(1)
+    expect(events.events[0]).toMatchObject(event)
   })
 
   it('deve rejeitar evento sem cliente', async () => {
@@ -116,7 +116,6 @@ expect(events.events[0]).toMatchObject(event)
     expect(response.status).toBe(400)
   })
 
-  
   it('deve rejeitar valor negativo', async () => {
     const response = await fetch(`${baseUrl}/api/events`, {
       method: 'POST',
@@ -172,6 +171,7 @@ expect(events.events[0]).toMatchObject(event)
 
     expect(response.status).toBe(400)
   })
+
   it('deve rejeitar produto visualizado sem productId', async () => {
     const response = await fetch(`${baseUrl}/api/events`, {
       method: 'POST',
@@ -181,6 +181,7 @@ expect(events.events[0]).toMatchObject(event)
         customerId: 'cliente-teste',
       }),
     })
+
     expect(response.status).toBe(400)
   })
 
@@ -194,6 +195,7 @@ expect(events.events[0]).toMatchObject(event)
         value: 100,
       }),
     })
+
     expect(response.status).toBe(400)
   })
 
@@ -207,6 +209,7 @@ expect(events.events[0]).toMatchObject(event)
         orderId: 'pedido-teste',
       }),
     })
+
     expect(response.status).toBe(400)
   })
 
@@ -221,6 +224,21 @@ expect(events.events[0]).toMatchObject(event)
     })
 
     expect(response.status).toBe(400)
+  })
+
+  it('deve rejeitar corpo JSON maior que 100 KB', async () => {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'product_viewed',
+        customerId: 'cliente-teste',
+        productId: 'produto-teste',
+        extra: 'A'.repeat(110 * 1024),
+      }),
+    })
+
+    expect(response.status).toBe(413)
   })
 
   it('deve responder às rotas de métricas, histórico, alertas, baseline e correlações', async () => {
